@@ -16,6 +16,8 @@ class EthereumManager:
 
     def configure_wallet(self, wallet_address: str, private_key: str):
         """Configure the wallet for transactions"""
+        if not Web3.is_address(wallet_address):
+            raise ValueError("Invalid wallet address")
         self.configured_wallet = wallet_address
         self.private_key = private_key
 
@@ -66,10 +68,13 @@ class EthereumManager:
             }
 
             # Sign transaction
-            signed_txn = self.w3.eth.account.sign_transaction(transaction, self.private_key)
+            signed_txn = self.w3.eth.account.sign_transaction(
+                transaction_dict=transaction,
+                private_key=self.private_key
+            )
 
-            # Send transaction
-            tx_hash = self.w3.eth.send_raw_transaction(signed_txn.rawTransaction)
+            # Send transaction using raw_transaction instead of rawTransaction
+            tx_hash = self.w3.eth.send_raw_transaction(signed_txn.raw_transaction)
 
             # Wait for transaction receipt
             receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
