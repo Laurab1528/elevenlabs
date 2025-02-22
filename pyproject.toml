@@ -1,0 +1,14 @@
+[project]
+name = "repl-nix-workspace"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.11"
+dependencies = [
+    "alembic>=1.14.1",
+    "psycopg2-binary>=2.9.10",
+    "pydantic[email]>=2.10.6",
+    "sqlalchemy>=2.0.38",
+    "streamlit>=1.42.2",
+    "twilio>=9.4.6",
+    "web3>=7.8.0",
+]

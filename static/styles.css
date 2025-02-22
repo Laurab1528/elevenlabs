@@ -1,0 +1,102 @@
+/* Custom styles for the subsidy management system */
+
+/* Global styles */
+.stApp {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Login form styling */
+div[data-testid="stForm"] {
+    background-color: #ffffff;
+    padding: 2rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Button styling */
+.stButton button {
+    border-radius: 4px;
+    padding: 0.5rem 1rem;
+    transition: all 0.3s ease;
+}
+
+.stButton button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Table styling */
+.dataframe {
+    font-size: 14px;
+    border: 1px solid #e0e0e0;
+}
+
+.dataframe th {
+    background-color: #f7f7f7;
+    padding: 8px;
+}
+
+/* Alert/notification styling */
+.stAlert {
+    border-radius: 4px;
+    margin: 1rem 0;
+}
+
+/* Sidebar styling */
+.css-1d391kg {
+    padding: 2rem 1rem;
+}
+
+/* Wallet configuration section */
+div[data-testid="stExpander"] {
+    margin: 1rem 0;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+}
+
+/* Form input styling */
+.stTextInput input {
+    border-radius: 4px;
+    border: 1px solid #e0e0e0;
+    padding: 0.5rem;
+}
+
+/* Status indicators */
+.success-indicator {
+    color: #00c853;
+    font-weight: bold;
+}
+
+.error-indicator {
+    color: #ff3d00;
+    font-weight: bold;
+}
+
+/* Transaction history section */
+.transaction-history {
+    margin-top: 2rem;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+}
+
+/* Voice interface section */
+.voice-interface {
+    text-align: center;
+    padding: 2rem;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    margin: 1rem 0;
+}
+
+/* Responsive adjustments */
+@media screen and (max-width: 768px) {
+    .stApp {
+        padding: 1rem;
+    }
+    
+    div[data-testid="stForm"] {
+        padding: 1rem;
+    }
+}
