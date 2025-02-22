@@ -7,7 +7,7 @@ class ElevenLabsManager:
     def __init__(self):
         self.api_key = "sk_81fc48f4c6b08d28bcc13e648f4de6ec4bc7c4b4ef7c1ac5"
         self.agent_id = "l0TW76oV0MVRU4OD5svT"
-        self.base_url = "https://api.elevenlabs.io/v1"
+        self.base_url = "https://elevenlabs.io/app"
 
     def start_voice_interaction(self):
         """Create an interactive voice chat interface"""
@@ -18,7 +18,7 @@ class ElevenLabsManager:
             with st.spinner("AI Assistant is ready..."):
                 try:
                     # Make API call to ElevenLabs for AI response
-                    url = f"{self.base_url}/talk-to/chat"
+                    url = f"{self.base_url}/talk-to"
                     headers = {
                         "xi-api-key": self.api_key,
                         "Content-Type": "application/json"

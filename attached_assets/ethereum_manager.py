@@ -45,16 +45,16 @@ class EthereumManager:
             # Convert ETH to Wei
             amount_wei = self.w3.to_wei(amount, 'ether')
 
-            # Get the nonce (transaction count)
-            nonce = self.w3.eth.get_transaction_count(from_address)
+            # Get the latest nonce
+            nonce = self.w3.eth.get_transaction_count(from_address, 'latest')
 
             # Check balance
             balance = self.check_balance(from_address)
             if balance < amount:
                 return False, f"Insufficient balance. Available: {balance} ETH"
 
-            # Estimate gas
-            gas_price = self.w3.eth.gas_price
+            # Get current gas price with a small increase
+            gas_price = int(self.w3.eth.gas_price * 1.1)  # 10% increase
             gas_limit = 21000  # Standard ETH transfer gas limit
 
             # Build transaction
@@ -73,8 +73,8 @@ class EthereumManager:
                 private_key=self.private_key
             )
 
-            # Send transaction using raw_transaction instead of rawTransaction
-            tx_hash = self.w3.eth.send_raw_transaction(signed_txn.raw_transaction)
+            # Send transaction
+            tx_hash = self.w3.eth.send_raw_transaction(signed_txn.rawTransaction)
 
             # Wait for transaction receipt
             receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
