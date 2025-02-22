@@ -5,13 +5,9 @@ import time
 
 class ElevenLabsManager:
     def __init__(self):
-        self.api_key = None
+        self.api_key = "sk_c03c16c9d68f8951132511287938f669378e71b48fac6033"
+        self.agent_id = "l0TW76oV0MVRU4OD5svT"
         self.base_url = "https://api.elevenlabs.io/v1"
-        self.voice_id = "21m00Tcm4TlvDq8ikWAM"  # Default voice ID
-
-    def configure_api_key(self, api_key: str):
-        """Configure the API key"""
-        self.api_key = api_key
 
     def generate_speech(self, text: str) -> bytes:
         """Generate speech from text"""
@@ -39,11 +35,27 @@ class ElevenLabsManager:
             raise Exception(f"Error generating speech: {response.text}")
 
     def generate_call(self, phone_number: str, message: str) -> bool:
-        """Generate voice call with notification"""
+        """Generate voice call with notification using ElevenLabs Talk API"""
         try:
-            # For demo, we'll just show the message that would be called
-            st.success(f"Voice call would be made to {phone_number} with message: {message}")
-            return True
+            url = f"{self.base_url}/talk-to/call"
+            headers = {
+                "xi-api-key": self.api_key,
+                "Content-Type": "application/json"
+            }
+
+            payload = {
+                "agent_id": self.agent_id,
+                "phone_number": phone_number,
+                "text": message
+            }
+
+            response = requests.post(url, headers=headers, json=payload)
+            if response.status_code == 200:
+                st.success("Voice call initiated successfully!")
+                return True
+            else:
+                st.error(f"Error initiating call: {response.text}")
+                return False
         except Exception as e:
             st.error(f"Error generating call: {str(e)}")
             return False
@@ -62,21 +74,31 @@ class ElevenLabsManager:
 
         selected_command = st.selectbox("Available Voice Commands:", commands)
 
-        if st.button("Speak Command"):
-            with st.spinner("Processing voice command..."):
-                # Simulate processing delay
-                time.sleep(1)
-
+        if st.button("Execute Command"):
+            with st.spinner("Processing command..."):
                 response_text = self.process_command(selected_command)
-                st.success(f"Command recognized: {selected_command}")
+                st.success(f"Command executed: {selected_command}")
                 st.info(f"Response: {response_text}")
 
-                # Generate voice response
+                # Make API call to ElevenLabs for voice response
                 try:
-                    if self.api_key:
-                        st.audio(self.generate_speech(response_text))
+                    url = f"{self.base_url}/talk-to/respond"
+                    headers = {
+                        "xi-api-key": self.api_key,
+                        "Content-Type": "application/json"
+                    }
+
+                    payload = {
+                        "agent_id": self.agent_id,
+                        "text": response_text
+                    }
+
+                    response = requests.post(url, headers=headers, json=payload)
+                    if response.status_code == 200:
+                        audio_data = response.content
+                        st.audio(audio_data, format='audio/mp3')
                     else:
-                        st.warning("Please configure ElevenLabs API key for voice response")
+                        st.warning("Could not generate voice response")
                 except Exception as e:
                     st.error(f"Error generating voice response: {str(e)}")
 

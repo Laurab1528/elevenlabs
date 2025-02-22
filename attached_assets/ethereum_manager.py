@@ -1,20 +1,18 @@
 from web3 import Web3
 from typing import Tuple
 from datetime import datetime
+import os
 
 class EthereumManager:
     def __init__(self):
-        # For testing purposes, we'll use Sepolia testnet
-        self.w3 = Web3(Web3.HTTPProvider('https://eth-sepolia.g.alchemy.com/v2/demo'))
+        # Connect to Sepolia testnet using environment variable
+        infura_project_id = os.getenv("INFURA_PROJECT_ID")
+        if not infura_project_id:
+            raise ValueError("INFURA_PROJECT_ID environment variable not set")
+
+        self.w3 = Web3(Web3.HTTPProvider(f'https://sepolia.infura.io/v3/{infura_project_id}'))
         self.configured_wallet = None
         self.private_key = None
-
-        # Simulated balances for demo
-        self.demo_balances = {
-            "0x742d35Cc6634C0532925a3b844Bc454e4438f44e": 5.0,  # Admin wallet
-            "0x941C3C374f856C6e86c44F929491338B": 0.1,         # Alice's wallet
-            "0xA1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6": 0.2          # Bob's wallet
-        }
 
     def configure_wallet(self, wallet_address: str, private_key: str):
         """Configure the wallet for transactions"""
@@ -24,27 +22,61 @@ class EthereumManager:
     def check_balance(self, address: str) -> float:
         """Check the balance of an Ethereum address"""
         try:
-            # For demo, return simulated balance
-            return self.demo_balances.get(address, 0.0)
+            if not Web3.is_address(address):
+                raise ValueError("Invalid Ethereum address")
+
+            balance_wei = self.w3.eth.get_balance(address)
+            balance_eth = self.w3.from_wei(balance_wei, 'ether')
+            return float(balance_eth)
         except Exception as e:
             raise Exception(f"Error checking balance: {str(e)}")
 
     def transfer_eth(self, from_address: str, to_address: str, amount: float) -> Tuple[bool, str]:
-        """Transfer ETH from one address to another"""
+        """Transfer ETH from one address to another on Sepolia testnet"""
         try:
-            # Check if sender has sufficient balance
-            sender_balance = self.check_balance(from_address)
-            if sender_balance < amount:
-                return False, f"Insufficient balance. Available: {sender_balance} ETH"
+            if not self.private_key:
+                return False, "Wallet not configured"
 
-            # Update simulated balances
-            self.demo_balances[from_address] = sender_balance - amount
-            self.demo_balances[to_address] = self.demo_balances.get(to_address, 0.0) + amount
+            if not Web3.is_address(from_address) or not Web3.is_address(to_address):
+                return False, "Invalid Ethereum address"
 
-            # Simulate successful transaction
-            return True, f"Successfully transferred {amount} ETH"
+            # Convert ETH to Wei
+            amount_wei = self.w3.to_wei(amount, 'ether')
+
+            # Get the nonce (transaction count)
+            nonce = self.w3.eth.get_transaction_count(from_address)
+
+            # Check balance
+            balance = self.check_balance(from_address)
+            if balance < amount:
+                return False, f"Insufficient balance. Available: {balance} ETH"
+
+            # Estimate gas
+            gas_price = self.w3.eth.gas_price
+            gas_limit = 21000  # Standard ETH transfer gas limit
+
+            # Build transaction
+            transaction = {
+                'nonce': nonce,
+                'to': to_address,
+                'value': amount_wei,
+                'gas': gas_limit,
+                'gasPrice': gas_price,
+                'chainId': 11155111  # Sepolia chain ID
+            }
+
+            # Sign transaction
+            signed_txn = self.w3.eth.account.sign_transaction(transaction, self.private_key)
+
+            # Send transaction
+            tx_hash = self.w3.eth.send_raw_transaction(signed_txn.rawTransaction)
+
+            # Wait for transaction receipt
+            receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
+
+            return True, f"Transaction successful. Hash: {receipt['transactionHash'].hex()}"
 
         except Exception as e:
-            return False, str(e)
+            return False, f"Transaction failed: {str(e)}"
 
 eth_manager = EthereumManager()

@@ -5,6 +5,7 @@ description = "Add your description here"
 requires-python = ">=3.11"
 dependencies = [
     "alembic>=1.14.1",
+    "openai>=1.63.2",
     "psycopg2-binary>=2.9.10",
     "pydantic[email]>=2.10.6",
     "sqlalchemy>=2.0.38",
