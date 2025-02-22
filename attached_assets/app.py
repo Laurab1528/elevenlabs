@@ -167,79 +167,76 @@ def candidate_management():
 
     st.subheader("Candidate Management")
 
-    # Add new candidate
-    with st.expander("Add New Candidate"):
-        with st.form("new_candidate"):
-            name = st.text_input("Name")
-            identification = st.text_input("ID")
-            address = st.text_input("Address")
-            phone = st.text_input("Phone")
-            wallet = st.text_input("Ethereum Address")
-
-            if st.form_submit_button("Add Candidate"):
-                candidate_data = {
-                    "name": name,
-                    "identification": identification,
-                    "address": address,
-                    "phone": phone,
-                    "wallet_address": wallet
-                }
-                if db_manager.add_candidate(candidate_data):
-                    st.success("Candidate added successfully!")
-                else:
-                    st.error("Error adding candidate")
+    # Display wallet balance
+    current_balance = eth_manager.check_balance(st.session_state.wallet_address)
+    st.info(f"Current Wallet Balance: {current_balance} ETH")
 
     # List candidates
-    st.subheader("Candidate List")
+    st.subheader("Eligible Candidates")
     candidates = db_manager.get_all_candidates()
     if candidates:
-        df = pd.DataFrame([{
-            'Name': c.name,
-            'ID': c.identification,
-            'Phone': c.phone,
-            'Eligible': c.is_eligible,
-            'Last Subsidy': c.last_subsidy.strftime('%Y-%m-%d') if c.last_subsidy else 'Never'
-        } for c in candidates])
+        eligible_candidates = [c for c in candidates if c.is_eligible]
 
-        st.dataframe(df)
+        if eligible_candidates:
+            df = pd.DataFrame([{
+                'Name': c.name,
+                'ID': c.identification,
+                'Phone': c.phone,
+                'Last Subsidy': c.last_subsidy.strftime('%Y-%m-%d') if c.last_subsidy else 'Never'
+            } for c in eligible_candidates])
 
-        # Subsidy Transfer
-        st.subheader("Transfer Subsidy")
-        selected_id = st.selectbox("Select Candidate", [c.identification for c in candidates])
-        amount = st.number_input("Amount (ETH)", min_value=0.0, value=0.1)
+            st.dataframe(df)
 
-        if st.button("Transfer Subsidy"):
-            candidate = db_manager.get_candidate(selected_id)
-            if candidate and candidate.is_eligible:
-                success, message = eth_manager.transfer_eth(
-                    st.session_state.wallet_address,
-                    candidate.wallet_address,
-                    amount
-                )
+            # Subsidy Transfer
+            st.subheader("Transfer Subsidy")
+            selected_id = st.selectbox(
+                "Select Candidate",
+                options=[c.identification for c in eligible_candidates],
+                format_func=lambda x: next(c.name for c in eligible_candidates if c.identification == x)
+            )
 
-                if success:
-                    # Update candidate's last subsidy date
-                    candidate_data = {
-                        "last_subsidy": datetime.now()
-                    }
-                    db_manager.update_candidate(selected_id, candidate_data)
+            amount = st.number_input("Amount (ETH)", min_value=0.1, value=0.1, step=0.1)
 
-                    # Generate automated call
-                    call_message = f"Hello {candidate.name}, you have received a subsidy of {amount} ETH."
-                    voice_manager.generate_call(candidate.phone, call_message)
+            if st.button("Transfer Subsidy"):
+                candidate = db_manager.get_candidate(selected_id)
+                if candidate:
+                    # Check balance and perform transfer
+                    success, message = eth_manager.transfer_eth(
+                        st.session_state.wallet_address,
+                        candidate.wallet_address,
+                        amount
+                    )
 
-                    st.success("Transfer successful and notification call initiated!")
-                else:
-                    st.error(f"Transfer error: {message}")
-            else:
-                st.error("Candidate is not eligible for subsidy yet")
+                    if success:
+                        # Update candidate's last subsidy date
+                        db_manager.update_candidate(selected_id, {
+                            "last_subsidy": datetime.now()
+                        })
+
+                        # Generate automated call
+                        call_message = f"Hello {candidate.name}, you have received a subsidy of {amount} ETH."
+                        voice_manager.generate_call(candidate.phone, call_message)
+
+                        st.success("Transfer successful and notification call initiated!")
+                    else:
+                        st.error(f"Transfer error: {message}")
+        else:
+            st.warning("No eligible candidates found")
+    else:
+        st.error("No candidates in the system")
 
 def voice_interface():
     st.subheader("Voice Interface")
 
-    if st.button("Start Voice Interaction"):
-        # Here you would implement the voice interaction logic
-        st.info("Voice interaction feature in development")
+    # Add ElevenLabs API key configuration
+    with st.expander("Configure ElevenLabs API"):
+        api_key = st.text_input("ElevenLabs API Key", type="password")
+        if st.button("Save API Key"):
+            voice_manager.configure_api_key(api_key)
+            st.success("API key configured successfully!")
+
+    # Start voice interaction
+    voice_manager.start_voice_interaction()
 
 def main():
     init_session_state()
