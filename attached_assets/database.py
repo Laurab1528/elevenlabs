@@ -11,46 +11,46 @@ class InMemoryDB:
 
     def add_user(self, username: str, password: str, email: str) -> Tuple[bool, str]:
         """
-        Registra un nuevo usuario con validaciones
-        Retorna (éxito, mensaje)
+        Register a new user with validations
+        Returns (success, message)
         """
-        # Validar que el usuario no exista
+        # Validate username doesn't exist
         if username in self.users:
-            return False, "El nombre de usuario ya existe"
+            return False, "Username already exists"
 
-        # Validar que el email no esté en uso
+        # Validate email isn't in use
         for user in self.users.values():
             if user.email == email:
-                return False, "El email ya está registrado"
+                return False, "Email is already registered"
 
-        # Validar longitud de contraseña
+        # Validate password length
         if len(password) < 6:
-            return False, "La contraseña debe tener al menos 6 caracteres"
+            return False, "Password must be at least 6 characters long"
 
-        # Crear y guardar el nuevo usuario
+        # Create and save new user
         try:
             new_user = User(username=username, password=password, email=email)
             self.users[username] = new_user
-            return True, "Usuario registrado exitosamente"
+            return True, "User registered successfully"
         except Exception as e:
-            return False, f"Error al registrar usuario: {str(e)}"
+            return False, f"Error registering user: {str(e)}"
 
     def authenticate_user(self, username: str, password: str) -> Tuple[bool, str]:
         """
-        Autentica un usuario
-        Retorna (éxito, mensaje)
+        Authenticate a user
+        Returns (success, message)
         """
         if username not in self.users:
-            return False, "Usuario no encontrado"
+            return False, "User not found"
 
         user = self.users[username]
         if user.password != password:
-            return False, "Contraseña incorrecta"
+            return False, "Incorrect password"
 
-        return True, "Autenticación exitosa"
+        return True, "Authentication successful"
 
     def generate_recovery_code(self, email: str) -> Optional[str]:
-        """Genera código de recuperación para un email"""
+        """Generate recovery code for an email"""
         for user in self.users.values():
             if user.email == email:
                 recovery_code = secrets.token_hex(3)
@@ -61,11 +61,11 @@ class InMemoryDB:
 
     def reset_password(self, email: str, recovery_code: str, new_password: str) -> Tuple[bool, str]:
         """
-        Resetea la contraseña usando un código de recuperación
-        Retorna (éxito, mensaje)
+        Reset password using a recovery code
+        Returns (success, message)
         """
         if len(new_password) < 6:
-            return False, "La nueva contraseña debe tener al menos 6 caracteres"
+            return False, "New password must be at least 6 characters long"
 
         for user in self.users.values():
             if (user.email == email and 
@@ -75,10 +75,9 @@ class InMemoryDB:
                 user.password = new_password
                 user.recovery_code = None
                 user.recovery_code_expiry = None
-                return True, "Contraseña actualizada exitosamente"
-        return False, "Código de recuperación inválido o expirado"
+                return True, "Password updated successfully"
+        return False, "Invalid or expired recovery code"
 
-    # Los métodos de gestión de candidatos se mantienen igual
     def add_candidate(self, candidate_data: dict) -> bool:
         try:
             candidate = Candidate(**candidate_data)
@@ -107,9 +106,9 @@ class InMemoryDB:
     def add_transaction(self, transaction: Transaction):
         self.transactions.append(transaction)
 
-# Crear una instancia singleton de la base de datos
+# Create a singleton instance of the database
 db_manager = InMemoryDB()
 
 def init_db():
-    """Inicializa la base de datos con la configuración requerida"""
+    """Initialize the database with required configuration"""
     return db_manager

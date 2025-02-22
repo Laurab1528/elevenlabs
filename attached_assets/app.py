@@ -34,12 +34,12 @@ def wallet_configuration():
 
         with st.form("wallet_config"):
             wallet_address = st.text_input("Ethereum Wallet Address", 
-                                         value=example_address,
-                                         help="Your Ethereum wallet address")
+                                        value=example_address,
+                                        help="Your Ethereum wallet address")
             private_key = st.text_input("Private Key", 
-                                      value=example_key,
-                                      type="password",
-                                      help="Your wallet's private key (Keep this secret!)")
+                                    value=example_key,
+                                    type="password",
+                                    help="Your wallet's private key (Keep this secret!)")
 
             if st.form_submit_button("Save Wallet Configuration"):
                 st.session_state.wallet_address = wallet_address
@@ -58,16 +58,16 @@ def wallet_configuration():
             st.rerun()
 
 def login_page():
-    st.title("Sistema de Gestión de Subsidios")
-    st.header("Iniciar Sesión")
+    st.title("Subsidy Management System")
+    st.header("Login")
 
-    username = st.text_input("Usuario", key="login_username")
-    password = st.text_input("Contraseña", type="password", key="login_password")
+    username = st.text_input("Username", key="login_username")
+    password = st.text_input("Password", type="password", key="login_password")
 
     col1, col2 = st.columns([1, 1])
 
     with col1:
-        if st.button("Iniciar Sesión", use_container_width=True):
+        if st.button("Login", use_container_width=True):
             success, message = db_manager.authenticate_user(username, password)
             if success:
                 st.session_state.authenticated = True
@@ -78,37 +78,37 @@ def login_page():
                 st.error(message)
 
     with col2:
-        if st.button("Registrarse", use_container_width=True):
+        if st.button("Sign Up", use_container_width=True):
             st.session_state.current_page = "register"
             st.rerun()
 
-    if st.button("¿Olvidaste tu contraseña?", type="secondary"):
+    if st.button("Forgot Password?", type="secondary"):
         st.session_state.current_page = "recover"
         st.rerun()
 
 def register_page():
-    st.title("Sistema de Gestión de Subsidios")
-    st.header("Registro de Usuario")
+    st.title("Subsidy Management System")
+    st.header("User Registration")
 
     with st.form("registration"):
-        new_username = st.text_input("Usuario")
+        new_username = st.text_input("Username")
         new_email = st.text_input("Email")
-        new_password = st.text_input("Contraseña", type="password")
-        confirm_password = st.text_input("Confirmar Contraseña", type="password")
+        new_password = st.text_input("Password", type="password")
+        confirm_password = st.text_input("Confirm Password", type="password")
 
         col1, col2 = st.columns([1, 1])
 
         with col1:
-            submit = st.form_submit_button("Registrar", use_container_width=True)
+            submit = st.form_submit_button("Register", use_container_width=True)
 
         with col2:
-            if st.form_submit_button("Volver al Login", use_container_width=True):
+            if st.form_submit_button("Back to Login", use_container_width=True):
                 st.session_state.current_page = "login"
                 st.rerun()
 
         if submit:
             if new_password != confirm_password:
-                st.error("Las contraseñas no coinciden")
+                st.error("Passwords don't match")
             else:
                 success, message = db_manager.add_user(new_username, new_password, new_email)
                 if success:
@@ -150,12 +150,14 @@ def recover_page():
         if st.form_submit_button("Change Password", use_container_width=True):
             if new_pass != confirm_new_pass:
                 st.error("Passwords don't match")
-            elif db_manager.reset_password(recovery_email, reset_code, new_pass):
-                st.success("Password updated successfully")
-                st.session_state.current_page = "login"
-                st.rerun()
             else:
-                st.error("Invalid or expired code")
+                success, message = db_manager.reset_password(recovery_email, reset_code, new_pass)
+                if success:
+                    st.success(message)
+                    st.session_state.current_page = "login"
+                    st.rerun()
+                else:
+                    st.error(message)
 
 def candidate_management():
     if not st.session_state.wallet_configured:
@@ -250,21 +252,21 @@ def main():
         elif st.session_state.current_page == "recover":
             recover_page()
     else:
-        st.title("Sistema de Gestión de Subsidios")
+        st.title("Subsidy Management System")
 
         menu = st.sidebar.selectbox(
-            "Navegación",
-            ["Configuración de la Billetera", "Gestión de Candidatos", "Interfaz de Voz"]
+            "Navigation",
+            ["Wallet Configuration", "Candidate Management", "Voice Interface"]
         )
 
-        if menu == "Configuración de la Billetera":
+        if menu == "Wallet Configuration":
             wallet_configuration()
-        elif menu == "Gestión de Candidatos":
+        elif menu == "Candidate Management":
             candidate_management()
-        elif menu == "Interfaz de Voz":
+        elif menu == "Voice Interface":
             voice_interface()
 
-        if st.sidebar.button("Cerrar Sesión"):
+        if st.sidebar.button("Logout"):
             st.session_state.authenticated = False
             st.session_state.current_user = None
             st.session_state.wallet_configured = False
