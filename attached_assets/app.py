@@ -228,8 +228,8 @@ def candidate_management():
 def voice_interface():
     st.subheader("AI Voice Assistant")
     st.markdown("""
-    Have a natural conversation with our AI assistant using voice or text.
-    The AI will respond with both text and voice.
+    Interact naturally with our AI assistant using voice.
+    Just click 'Execute Model' to start the conversation.
     """)
 
     # Start voice interaction
