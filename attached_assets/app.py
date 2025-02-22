@@ -58,63 +58,65 @@ def wallet_configuration():
             st.rerun()
 
 def login_page():
-    st.title("Subsidy Management System")
-    st.header("Login")
+    st.title("Sistema de Gestión de Subsidios")
+    st.header("Iniciar Sesión")
 
-    username = st.text_input("Username", key="login_username")
-    password = st.text_input("Password", type="password", key="login_password")
+    username = st.text_input("Usuario", key="login_username")
+    password = st.text_input("Contraseña", type="password", key="login_password")
 
     col1, col2 = st.columns([1, 1])
 
     with col1:
-        if st.button("Login", use_container_width=True):
-            if db_manager.authenticate_user(username, password):
+        if st.button("Iniciar Sesión", use_container_width=True):
+            success, message = db_manager.authenticate_user(username, password)
+            if success:
                 st.session_state.authenticated = True
                 st.session_state.current_user = username
-                st.success("Login successful!")
+                st.success(message)
                 st.rerun()
             else:
-                st.error("Invalid credentials")
+                st.error(message)
 
     with col2:
-        if st.button("Sign Up", use_container_width=True):
+        if st.button("Registrarse", use_container_width=True):
             st.session_state.current_page = "register"
             st.rerun()
 
-    if st.button("Forgot Password?", type="secondary"):
+    if st.button("¿Olvidaste tu contraseña?", type="secondary"):
         st.session_state.current_page = "recover"
         st.rerun()
 
 def register_page():
-    st.title("Subsidy Management System")
-    st.header("User Registration")
+    st.title("Sistema de Gestión de Subsidios")
+    st.header("Registro de Usuario")
 
     with st.form("registration"):
-        new_username = st.text_input("Username")
+        new_username = st.text_input("Usuario")
         new_email = st.text_input("Email")
-        new_password = st.text_input("Password", type="password")
-        confirm_password = st.text_input("Confirm Password", type="password")
+        new_password = st.text_input("Contraseña", type="password")
+        confirm_password = st.text_input("Confirmar Contraseña", type="password")
 
         col1, col2 = st.columns([1, 1])
 
         with col1:
-            submit = st.form_submit_button("Register", use_container_width=True)
+            submit = st.form_submit_button("Registrar", use_container_width=True)
 
         with col2:
-            if st.form_submit_button("Back to Login", use_container_width=True):
+            if st.form_submit_button("Volver al Login", use_container_width=True):
                 st.session_state.current_page = "login"
                 st.rerun()
 
         if submit:
             if new_password != confirm_password:
-                st.error("Passwords don't match")
+                st.error("Las contraseñas no coinciden")
             else:
-                if db_manager.add_user(new_username, new_password, new_email):
-                    st.success("User registered successfully")
+                success, message = db_manager.add_user(new_username, new_password, new_email)
+                if success:
+                    st.success(message)
                     st.session_state.current_page = "login"
                     st.rerun()
                 else:
-                    st.error("Username or email already exists")
+                    st.error(message)
 
 def recover_page():
     st.title("Subsidy Management System")
@@ -248,21 +250,21 @@ def main():
         elif st.session_state.current_page == "recover":
             recover_page()
     else:
-        st.title("Subsidy Management System")
+        st.title("Sistema de Gestión de Subsidios")
 
         menu = st.sidebar.selectbox(
-            "Navigation",
-            ["Wallet Configuration", "Candidate Management", "Voice Interface"]
+            "Navegación",
+            ["Configuración de la Billetera", "Gestión de Candidatos", "Interfaz de Voz"]
         )
 
-        if menu == "Wallet Configuration":
+        if menu == "Configuración de la Billetera":
             wallet_configuration()
-        elif menu == "Candidate Management":
+        elif menu == "Gestión de Candidatos":
             candidate_management()
-        elif menu == "Voice Interface":
+        elif menu == "Interfaz de Voz":
             voice_interface()
 
-        if st.sidebar.button("Logout"):
+        if st.sidebar.button("Cerrar Sesión"):
             st.session_state.authenticated = False
             st.session_state.current_user = None
             st.session_state.wallet_configured = False
