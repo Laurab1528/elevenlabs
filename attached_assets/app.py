@@ -227,13 +227,10 @@ def candidate_management():
 
 def voice_interface():
     st.subheader("Voice Interface")
-
-    # Add ElevenLabs API key configuration
-    with st.expander("Configure ElevenLabs API"):
-        api_key = st.text_input("ElevenLabs API Key", type="password")
-        if st.button("Save API Key"):
-            voice_manager.configure_api_key(api_key)
-            st.success("API key configured successfully!")
+    st.markdown("""
+    This interface allows you to interact with our AI assistant using voice commands.
+    Select a command and click 'Execute' to hear the AI response.
+    """)
 
     # Start voice interaction
     voice_manager.start_voice_interaction()

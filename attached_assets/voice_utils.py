@@ -5,34 +5,9 @@ import time
 
 class ElevenLabsManager:
     def __init__(self):
-        self.api_key = "sk_c03c16c9d68f8951132511287938f669378e71b48fac6033"
+        self.api_key = "sk_81fc48f4c6b08d28bcc13e648f4de6ec4bc7c4b4ef7c1ac5"
         self.agent_id = "l0TW76oV0MVRU4OD5svT"
         self.base_url = "https://api.elevenlabs.io/v1"
-
-    def generate_speech(self, text: str) -> bytes:
-        """Generate speech from text"""
-        if not self.api_key:
-            raise Exception("API key not configured")
-
-        url = f"{self.base_url}/text-to-speech/{self.voice_id}"
-        headers = {
-            "xi-api-key": self.api_key,
-            "Content-Type": "application/json"
-        }
-        data = {
-            "text": text,
-            "model_id": "eleven_monolingual_v1",
-            "voice_settings": {
-                "stability": 0.5,
-                "similarity_boost": 0.5
-            }
-        }
-
-        response = requests.post(url, json=data, headers=headers)
-        if response.status_code == 200:
-            return response.content
-        else:
-            raise Exception(f"Error generating speech: {response.text}")
 
     def generate_call(self, phone_number: str, message: str) -> bool:
         """Generate voice call with notification using ElevenLabs Talk API"""
