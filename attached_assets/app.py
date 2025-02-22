@@ -226,10 +226,10 @@ def candidate_management():
         st.error("No candidates in the system")
 
 def voice_interface():
-    st.subheader("Voice Interface")
+    st.subheader("AI Voice Assistant")
     st.markdown("""
-    This interface allows you to interact with our AI assistant using voice commands.
-    Select a command and click 'Execute' to hear the AI response.
+    Have a natural conversation with our AI assistant using voice or text.
+    The AI will respond with both text and voice.
     """)
 
     # Start voice interaction

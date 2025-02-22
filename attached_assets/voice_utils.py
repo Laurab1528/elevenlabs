@@ -9,82 +9,56 @@ class ElevenLabsManager:
         self.agent_id = "l0TW76oV0MVRU4OD5svT"
         self.base_url = "https://api.elevenlabs.io/v1"
 
-    def generate_call(self, phone_number: str, message: str) -> bool:
-        """Generate voice call with notification using ElevenLabs Talk API"""
-        try:
-            url = f"{self.base_url}/talk-to/call"
-            headers = {
-                "xi-api-key": self.api_key,
-                "Content-Type": "application/json"
-            }
-
-            payload = {
-                "agent_id": self.agent_id,
-                "phone_number": phone_number,
-                "text": message
-            }
-
-            response = requests.post(url, headers=headers, json=payload)
-            if response.status_code == 200:
-                st.success("Voice call initiated successfully!")
-                return True
-            else:
-                st.error(f"Error initiating call: {response.text}")
-                return False
-        except Exception as e:
-            st.error(f"Error generating call: {str(e)}")
-            return False
-
     def start_voice_interaction(self):
-        """Start voice interaction interface"""
-        st.write("Voice Interaction Demo")
+        """Create an interactive voice chat interface"""
+        st.write("## Voice Chat with AI Assistant")
 
-        # Example voice commands
-        commands = [
-            "Check wallet balance",
-            "Show eligible candidates",
-            "Make transfer to candidate",
-            "Show transaction history"
-        ]
+        # User input section
+        user_message = st.text_input("Type your message (or speak if your browser supports it):",
+                                   key="user_message")
 
-        selected_command = st.selectbox("Available Voice Commands:", commands)
+        if st.button("Send Message"):
+            if user_message:
+                with st.spinner("AI is processing..."):
+                    try:
+                        # Make API call to ElevenLabs for AI response
+                        url = f"{self.base_url}/talk-to/chat"
+                        headers = {
+                            "xi-api-key": self.api_key,
+                            "Content-Type": "application/json"
+                        }
 
-        if st.button("Execute Command"):
-            with st.spinner("Processing command..."):
-                response_text = self.process_command(selected_command)
-                st.success(f"Command executed: {selected_command}")
-                st.info(f"Response: {response_text}")
+                        payload = {
+                            "agent_id": self.agent_id,
+                            "message": user_message
+                        }
 
-                # Make API call to ElevenLabs for voice response
-                try:
-                    url = f"{self.base_url}/talk-to/respond"
-                    headers = {
-                        "xi-api-key": self.api_key,
-                        "Content-Type": "application/json"
-                    }
+                        response = requests.post(url, headers=headers, json=payload)
 
-                    payload = {
-                        "agent_id": self.agent_id,
-                        "text": response_text
-                    }
+                        if response.status_code == 200:
+                            response_data = response.json()
+                            # Display AI's text response
+                            st.write("AI:", response_data.get('text', 'No response text'))
 
-                    response = requests.post(url, headers=headers, json=payload)
-                    if response.status_code == 200:
-                        audio_data = response.content
-                        st.audio(audio_data, format='audio/mp3')
-                    else:
-                        st.warning("Could not generate voice response")
-                except Exception as e:
-                    st.error(f"Error generating voice response: {str(e)}")
+                            # Play audio response
+                            if 'audio' in response_data:
+                                st.audio(response_data['audio'], format='audio/mp3')
+                        else:
+                            st.error(f"Error communicating with AI: {response.text}")
+                    except Exception as e:
+                        st.error(f"Error during voice interaction: {str(e)}")
+            else:
+                st.warning("Please enter a message first")
 
-    def process_command(self, command: str) -> str:
-        """Process voice commands and return response"""
-        responses = {
-            "Check wallet balance": "Your current wallet balance is 5.0 ETH",
-            "Show eligible candidates": "There are 2 eligible candidates for subsidy",
-            "Make transfer to candidate": "Please select a candidate for transfer",
-            "Show transaction history": "You have made 3 transfers in the last month"
-        }
-        return responses.get(command, "Command not recognized")
+        # Display instructions
+        with st.expander("How to use the voice chat"):
+            st.markdown("""
+            1. Type your message in the text box or use your browser's speech-to-text feature
+            2. Click 'Send Message' to interact with the AI
+            3. The AI will respond with both text and voice
+            4. Continue the conversation naturally
+
+            Note: This is connected to the ElevenLabs Talk-To AI agent for natural conversation.
+            """)
 
 voice_manager = ElevenLabsManager()
