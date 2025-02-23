@@ -37,8 +37,8 @@ This subsidy is designed for individuals who did not meet the retirement require
 1. Clone the repository:
 
    ```bash
-   git clone <REPOSITORY_URL>
-   cd <REPOSITORY_NAME>
+   git clone https://github.com/Laurab1528/elevenlabs
+   cd elevenlabs
    ```
 
 2. Create a virtual environment and activate it:
