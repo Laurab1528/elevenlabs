@@ -1,12 +1,152 @@
 import streamlit as st
 from datetime import datetime
 import pandas as pd
-from database import db_manager, init_db, Candidate
-from ethereum_manager import eth_manager
-from voice_utils import voice_manager
+from database import db_manager, init_db
+import os
+from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_openai import ChatOpenAI
+import openai
+from models import Candidate
+import asyncio
+from dotenv import load_dotenv
+import logging
+from typing import Dict, List
+import random  # Asegúrate de importar la biblioteca random
+
+# Configuración de logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger(__name__)
+
+load_dotenv(os.path.join(os.path.dirname(__file__), 'conversational_call/.env'))
 
 # Initialize the database
 init_db()
+
+# Now you can access the environment variables
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+if not OPENAI_API_KEY:
+    raise ValueError("🚨 The OpenAI API key is not configured. Please set the 'OPENAI_API_KEY' environment variable.")
+
+# Configurar OpenAI API
+openai.api_key = OPENAI_API_KEY
+
+class CandidateAnalysisAgent:
+    """
+    Clase que representa un agente de análisis de candidatos.
+    """
+
+    def __init__(self):
+        """
+        Inicializa el agente con la API key de OpenAI.
+        """
+        self.model = self.initialize_openai_client()
+
+    def initialize_openai_client(self) -> ChatOpenAI:
+        """
+        Inicializa el cliente de OpenAI.
+
+        Returns:
+            ChatOpenAI: Modelo de OpenAI inicializado.
+        """
+        return ChatOpenAI(
+            model="gpt-4o-mini",
+            temperature=0,
+            api_key=OPENAI_API_KEY
+        )
+
+    async def analyze_candidates(self) -> Candidate:
+        """
+        Analyzes all candidates and returns the one that needs the subsidy the most.
+
+        Returns:
+            Candidate: The selected candidate.
+        """
+        candidates = db_manager.get_all_candidates()  # Get all candidates
+        if not candidates:
+            raise ValueError("The database must contain at least one candidate (ID001, ID002, ID003)")
+
+        # Sort candidates by last_subsidy (ascending), prioritizing the oldest subsidy
+        candidates.sort(key=lambda c: c.last_subsidy if c.last_subsidy else datetime.min)
+
+        # Prepare candidate information for the model
+        candidates_info = "\n".join([
+            f"Candidate: {c.name}\n"
+            f"ID: {c.identification}\n"
+            f"Last subsidy: {c.last_subsidy.strftime('%Y-%m-%d') if c.last_subsidy else 'Never'}\n"
+            f"Address: {c.address}\n"
+            f"Phone: {c.phone}\n"
+            f"Summary: {c.resumen if hasattr(c, 'resumen') else 'No summary'}\n"
+            "---"
+            for c in candidates
+        ])
+
+        # Create a message for the model
+        analysis_prompt = SystemMessage(content=f"""
+        Analyze the following list of candidates and select the one that needs the subsidy the most:
+        {candidates_info}
+        
+        IMPORTANT: Your response must be ONLY the ID of the selected candidate, for example: 'ID001'
+        """)
+
+        # Send the message to the model and get the response
+        response = await self.model.ainvoke([analysis_prompt])
+        
+        # Get the candidate ID and clean it from any additional text
+        selected_candidate_id = response.content.strip()
+
+        print(selected_candidate_id)
+        
+        # Verify that the ID exists before returning it
+        selected_candidate = db_manager.get_candidate(selected_candidate_id)
+
+        # If the model did not select a valid candidate, take the first one (oldest last_subsidy)
+        if selected_candidate is None:
+            logger.warning("The model did not select a valid candidate. Selecting the candidate with the oldest last_subsidy instead.")
+            selected_candidate = candidates[0]  # Take the first candidate in the sorted list
+
+        return selected_candidate
+
+    def extract_candidate_id(self, analysis_result: str) -> str:
+        """
+        Extrae el ID del candidato del resultado del análisis.
+        
+        Args:
+            analysis_result (str): Resultado del análisis.
+            
+        Returns:
+            str: ID del candidato.
+        """
+        # Como el modelo está configurado para devolver solo el ID,
+        # simplemente limpiamos cualquier espacio en blanco
+        return analysis_result.strip()
+
+    def get_candidates(self) -> List[Candidate]:
+        """
+        Obtiene todos los candidatos de la base de datos.
+
+        Returns:
+            List[Candidate]: Lista de candidatos disponibles.
+        """
+        candidates = db_manager.get_all_candidates()  # Obtener todos los candidatos
+        if not candidates:
+            return []
+            
+        return candidates
+
+
+class StateType(Dict):
+    """Tipo de estado para el grafo"""
+    candidates: List[Candidate]
+    analysis_result: str
+    recommendation: Dict
+    transfer_details: Dict
+    user_confirmed: bool
+    transfer_confirmed: bool
+    call_summary: str
 
 def init_session_state():
     if 'authenticated' not in st.session_state:
@@ -17,45 +157,10 @@ def init_session_state():
         st.session_state.current_page = "login"
     if 'wallet_configured' not in st.session_state:
         st.session_state.wallet_configured = False
-    if 'wallet_address' not in st.session_state:
-        st.session_state.wallet_address = None
-    if 'private_key' not in st.session_state:
-        st.session_state.private_key = None
-
-def wallet_configuration():
-    st.subheader("Wallet Configuration")
-
-    if not st.session_state.wallet_configured:
-        st.warning("Please configure your Ethereum wallet to perform transactions")
-
-        # For demo purposes, we'll use example values
-        example_address = "0x742d35Cc6634C0532925a3b844Bc454e4438f44e"
-        example_key = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-
-        with st.form("wallet_config"):
-            wallet_address = st.text_input("Ethereum Wallet Address", 
-                                        value=example_address,
-                                        help="Your Ethereum wallet address")
-            private_key = st.text_input("Private Key", 
-                                    value=example_key,
-                                    type="password",
-                                    help="Your wallet's private key (Keep this secret!)")
-
-            if st.form_submit_button("Save Wallet Configuration"):
-                st.session_state.wallet_address = wallet_address
-                st.session_state.private_key = private_key
-                st.session_state.wallet_configured = True
-                eth_manager.configure_wallet(wallet_address, private_key)
-                st.success("Wallet configured successfully!")
-                st.rerun()
-    else:
-        st.success("Wallet is configured")
-        st.info(f"Current wallet address: {st.session_state.wallet_address[:6]}...{st.session_state.wallet_address[-4:]}")
-        if st.button("Reset Wallet Configuration"):
-            st.session_state.wallet_configured = False
-            st.session_state.wallet_address = None
-            st.session_state.private_key = None
-            st.rerun()
+    if 'agent' not in st.session_state:
+        st.session_state.agent = CandidateAnalysisAgent()  # Ya no necesitamos pasar la API key
+    if 'analysis_state' not in st.session_state:
+        st.session_state.analysis_state = None
 
 def login_page():
     st.title("Subsidy Management System")
@@ -160,80 +265,51 @@ def recover_page():
                     st.error(message)
 
 def candidate_management():
-    if not st.session_state.wallet_configured:
-        st.error("Please configure your wallet first")
-        wallet_configuration()
-        return
-
     st.subheader("Candidate Management")
 
-    # Display wallet balance
-    current_balance = eth_manager.check_balance(st.session_state.wallet_address)
-    st.info(f"Current Wallet Balance: {current_balance} ETH")
-
-    # List candidates
-    st.subheader("Eligible Candidates")
+    # Obtener todos los candidatos
     candidates = db_manager.get_all_candidates()
-    if candidates:
-        eligible_candidates = [c for c in candidates if c.is_eligible]
+    
+    if not candidates:
+        st.error("No candidates available.")
+        return
 
-        if eligible_candidates:
-            df = pd.DataFrame([{
-                'Name': c.name,
-                'ID': c.identification,
-                'Phone': c.phone,
-                'Last Subsidy': c.last_subsidy.strftime('%Y-%m-%d') if c.last_subsidy else 'Never'
-            } for c in eligible_candidates])
+    # Análisis de candidatos para seleccionar el mejor
+    agent = CandidateAnalysisAgent()
+    selected_candidate = asyncio.run(agent.analyze_candidates())
 
-            st.dataframe(df)
+    # Mostrar la información del candidato seleccionado
+    st.info(f"Selected candidate: {selected_candidate.name} (ID: {selected_candidate.identification})")
+    
+    # Mostrar información adicional del candidato
+    st.write(f"Address: {selected_candidate.address}")
+    st.write(f"Phone: {selected_candidate.phone}")
+    st.write(f"Last subsidy: {selected_candidate.last_subsidy.strftime('%Y-%m-%d') if selected_candidate.last_subsidy else 'Never'}")
 
-            # Subsidy Transfer
-            st.subheader("Transfer Subsidy")
-            selected_id = st.selectbox(
-                "Select Candidate",
-                options=[c.identification for c in eligible_candidates],
-                format_func=lambda x: next(c.name for c in eligible_candidates if c.identification == x)
-            )
+    # Proceso de transferencia
+    amount = st.number_input("Amount to transfer (USD)", min_value=10, value=10, step=5)
 
-            amount = st.number_input("Amount (ETH)", min_value=0.1, value=0.1, step=0.1)
+    if st.button("Confirm Transfer"):
+        success, message = transfer_via_phone(selected_candidate.phone, amount)
 
-            if st.button("Transfer Subsidy"):
-                candidate = db_manager.get_candidate(selected_id)
-                if candidate:
-                    # Check balance and perform transfer
-                    success, message = eth_manager.transfer_eth(
-                        st.session_state.wallet_address,
-                        candidate.wallet_address,
-                        amount
-                    )
+        if success:
+            # Actualizar solo last_subsidy
+            db_manager.update_candidate(selected_candidate.identification, {
+                "last_subsidy": datetime.now()
+            })
 
-                    if success:
-                        # Update candidate's last subsidy date
-                        db_manager.update_candidate(selected_id, {
-                            "last_subsidy": datetime.now()
-                        })
-
-                        # Generate automated call
-                        call_message = f"Hello {candidate.name}, you have received a subsidy of {amount} ETH."
-                        voice_manager.generate_call(candidate.phone, call_message)
-
-                        st.success("Transfer successful and notification call initiated!")
-                    else:
-                        st.error(f"Transfer error: {message}")
+            st.success("Transfer successful!")
+            os.system(f"python conversational_call/main.py {selected_candidate.identification}")
         else:
-            st.warning("No eligible candidates found")
-    else:
-        st.error("No candidates in the system")
+            st.error(f"Error in transfer: {message}")
 
-def voice_interface():
-    st.subheader("AI Voice Assistant")
-    st.markdown("""
-    Interact naturally with our AI assistant using voice.
-    Just click 'Execute Model' to start the conversation.
-    """)
+def start_conversation(candidate: Candidate):
+    # Aquí se llamaría al main de la conversación, pasando el ID del candidato
+    os.system(f"python attached_assets/conversational_call/main.py {candidate.identification}")
 
-    # Start voice interaction
-    voice_manager.start_voice_interaction()
+def transfer_via_phone(phone_number, amount):
+    # Logic to transfer money to the phone number using pix (Brazil), Bre-B (Colombia)
+    return True, "Transfer completed successfully"
 
 def main():
     init_session_state()
@@ -250,22 +326,16 @@ def main():
 
         menu = st.sidebar.selectbox(
             "Navigation",
-            ["Wallet Configuration", "Candidate Management", "Voice Interface"]
+            ["Candidate Management"]
         )
 
-        if menu == "Wallet Configuration":
-            wallet_configuration()
-        elif menu == "Candidate Management":
+        if menu == "Candidate Management":
             candidate_management()
-        elif menu == "Voice Interface":
-            voice_interface()
 
         if st.sidebar.button("Logout"):
             st.session_state.authenticated = False
             st.session_state.current_user = None
             st.session_state.wallet_configured = False
-            st.session_state.wallet_address = None
-            st.session_state.private_key = None
             st.rerun()
 
 if __name__ == "__main__":

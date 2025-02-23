@@ -6,7 +6,7 @@ from models import User, Candidate, Transaction
 class InMemoryDB:
     def __init__(self):
         self.users: Dict[str, User] = {}
-        # Initialize with dummy candidates
+        # Inicializar con candidatos de ejemplo
         self.candidates: Dict[str, Candidate] = {
             "ID001": Candidate(
                 name="John Smith",
@@ -14,7 +14,9 @@ class InMemoryDB:
                 address="123 Main St",
                 phone="+1234567890",
                 wallet_address="0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
-                last_subsidy=None
+                last_subsidy=None,
+                resumen="Familia de 4 miembros, desempleado desde hace 6 meses",
+             
             ),
             "ID002": Candidate(
                 name="Alice Johnson",
@@ -22,7 +24,9 @@ class InMemoryDB:
                 address="456 Oak Ave",
                 phone="+1987654321",
                 wallet_address="0x941C3C374f856C6e86c44F929491338B",
-                last_subsidy=datetime.now() - timedelta(days=70)
+                last_subsidy=datetime.now() - timedelta(days=70),
+                resumen="Madre soltera, dos hijos en edad escolar",
+                
             ),
             "ID003": Candidate(
                 name="Bob Wilson",
@@ -30,7 +34,9 @@ class InMemoryDB:
                 address="789 Pine Rd",
                 phone="+1122334455",
                 wallet_address="0xA1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6",
-                last_subsidy=datetime.now() - timedelta(days=30)
+                last_subsidy=datetime.now() - timedelta(days=30),
+                resumen="Desempleado, busca trabajo activamente",
+                
             )
         }
         self.transactions: List[Transaction] = []
@@ -96,17 +102,28 @@ class InMemoryDB:
         return list(self.candidates.values())
 
     def update_candidate(self, identification: str, candidate_data: dict):
+        """
+        Actualiza la información de un candidato.
+        
+        Args:
+            identification (str): ID del candidato a actualizar
+            candidate_data (dict): Diccionario con los datos a actualizar
+        """
         if identification in self.candidates:
             current_candidate = self.candidates[identification]
-            for key, value in candidate_data.items():
-                setattr(current_candidate, key, value)
+            # Crear un nuevo diccionario con los datos actuales
+            updated_data = current_candidate.dict()
+            # Actualizar con los nuevos datos
+            updated_data.update(candidate_data)
+            # Crear un nuevo objeto Candidate con los datos actualizados
+            self.candidates[identification] = Candidate(**updated_data)
 
     def add_transaction(self, transaction: Transaction):
         self.transactions.append(transaction)
 
-# Create a singleton instance of the database
+# Crear una instancia singleton de la base de datos
 db_manager = InMemoryDB()
 
 def init_db():
-    """Initialize the database with required configuration"""
+    """Inicializa la base de datos con la configuración requerida"""
     return db_manager

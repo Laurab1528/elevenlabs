@@ -1,0 +1,41 @@
+# Virtual Environment
+env/
+myenv/
+.env
+venv/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Local development settings
+*.sqlite3
+*.db
+
+# Logs
+*.log
+logs/
+
+# Other
+conversational_call/.env
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
