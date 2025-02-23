@@ -1,163 +1,198 @@
-import streamlit as st
+# import streamlit as st
+#from lovable import Lovable as st  # Asegúrate de que la biblioteca Lovable esté instalada
 from datetime import datetime
 import pandas as pd
 from database import db_manager, init_db
 import os
-from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
-import openai
-from models import Candidate
+from dotenv import load_dotenv  # Asegúrate de instalar python-dotenv si no lo tienes
+from openai import OpenAI
 import asyncio
-from dotenv import load_dotenv
-import logging
-from typing import Dict, List, Optional
-import random  # Asegúrate de importar la biblioteca random
-from pydantic import BaseModel, Field
-from dataclasses import dataclass
-from pydantic_ai import Agent, RunContext
-
-# Configuración de logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
-logger = logging.getLogger(__name__)
-
-load_dotenv(os.path.join(os.path.dirname(__file__), 'conversational_call/.env'))
-
-# Initialize the database
-init_db()
-
-# Now you can access the environment variables
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if not OPENAI_API_KEY:
-    raise ValueError("🚨 The OpenAI API key is not configured. Please set the 'OPENAI_API_KEY' environment variable.")
-
-# Configurar OpenAI API
-openai.api_key = OPENAI_API_KEY
-
-# Definición del modelo de candidato usando Pydantic
-class Candidate(BaseModel):
-    name: str
-    identification: str
-    address: str
-    phone: str
-    last_subsidy: Optional[datetime] = None
-    resumen: Optional[str] = None
-
-@dataclass
-class CandidateDependencies:
-    db: any  # Tipo de conexión a la base de datos
-    openai_key: str
-
-class CandidateAnalysisResult(BaseModel):
-    selected_candidate_id: str = Field(description='ID del candidato seleccionado')
-    urgency_level: int = Field(description='Nivel de urgencia del caso', ge=0, le=10)
-    recommendation: str = Field(description='Justificación de la selección')
-
-candidate_analysis_agent = Agent(
-    'openai:gpt-4o-mini',
-    deps_type=CandidateDependencies,
-    result_type=CandidateAnalysisResult,
-    system_prompt=(
-        'Eres un agente de análisis que evalúa candidatos para subsidios. '
-        'Debes seleccionar al candidato más necesitado basándote en su información.'
-    ),
-)
-
-@candidate_analysis_agent.system_prompt
-async def add_candidates_context(ctx: RunContext[CandidateDependencies]) -> str:
-    candidates = ctx.deps.db.get_all_candidates()
-    candidates_info = "\n".join([
-        f"Candidate: {c.name}\n"
-        f"ID: {c.identification}\n"
-        f"Last subsidy: {c.last_subsidy.strftime('%Y-%m-%d') if c.last_subsidy else 'Never'}\n"
-        f"Address: {c.address}\n"
-        f"Phone: {c.phone}\n"
-        f"Summary: {c.resumen if hasattr(c, 'resumen') else 'No summary'}\n"
-        "---"
-        for c in candidates
-    ])
-    return f"Analiza los siguientes candidatos:\n{candidates_info}"
-
-@candidate_analysis_agent.tool
-async def get_candidate_history(
-    ctx: RunContext[CandidateDependencies],
-    candidate_id: str
-) -> dict:
-    """Obtiene el historial de subsidios del candidato."""
-    return await ctx.deps.db.get_candidate_history(candidate_id)
-
-class CandidateAnalysisAgent:
-    def __init__(self):
-        self.deps = CandidateDependencies(
-            db=db_manager,
-            openai_key=OPENAI_API_KEY
-        )
-        
-    async def analyze_candidates(self) -> Candidate:
-        result = await candidate_analysis_agent.run(
-            "Analiza y selecciona al candidato más necesitado",
-            deps=self.deps
-        )
-        
-        selected_candidate = db_manager.get_candidate(result.data.selected_candidate_id)
-        if not selected_candidate:
-            candidates = db_manager.get_all_candidates()
-            selected_candidate = candidates[0] if candidates else None
-            
-        return selected_candidate
-
-    def extract_candidate_id(self, analysis_result: str) -> str:
-        """
-        Extrae el ID del candidato del resultado del análisis.
-        
-        Args:
-            analysis_result (str): Resultado del análisis.
-            
-        Returns:
-            str: ID del candidato.
-        """
-        return analysis_result.strip()
-
-    def get_candidates(self) -> List[Candidate]:
-        """
-        Obtiene todos los candidatos de la base de datos.
-
-        Returns:
-            List[Candidate]: Lista de candidatos disponibles.
-        """
-        candidates = db_manager.get_all_candidates()  # Obtener todos los candidatos
-        if not candidates:
-            return []
-            
-        return candidates
+import speech_recognition as sr
+from gtts import gTTS
+import tempfile
+from voice import voice_interface # Asegúrate de importar la función
+import streamlit as st
 
 
-class StateType(Dict):
-    """Tipo de estado para el grafo"""
-    candidates: List[Candidate]
-    analysis_result: str
-    recommendation: Dict
-    transfer_details: Dict
-    user_confirmed: bool
-    transfer_confirmed: bool
-    call_summary: str
+# Cargar las variables de entorno desde el archivo .env
+load_dotenv("./conversational_call/.env")
+
+# Inicializar el cliente de OpenAI
+client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+
+# Inicializar la base de datos
+db = init_db()
 
 def init_session_state():
+    """Inicializa las variables de estado de la sesión"""
     if 'authenticated' not in st.session_state:
         st.session_state.authenticated = False
     if 'current_user' not in st.session_state:
         st.session_state.current_user = None
     if 'current_page' not in st.session_state:
         st.session_state.current_page = "login"
-    if 'wallet_configured' not in st.session_state:
-        st.session_state.wallet_configured = False
-    if 'agent' not in st.session_state:
-        st.session_state.agent = CandidateAnalysisAgent()  # Ya no necesitamos pasar la API key
-    if 'analysis_state' not in st.session_state:
-        st.session_state.analysis_state = None
+    if 'phone_number' not in st.session_state:
+        st.session_state.phone_number = None
+
+def simple_phone_transfer(from_phone: str, to_phone: str, amount: float) -> tuple[bool, str]:
+    """
+    Función simple para simular una transferencia usando números de teléfono
+    """
+    try:
+        # Aquí puedes implementar la lógica real de transferencia
+        print(f"Transferring ${amount} from {from_phone} to {to_phone}")
+        return True, "Transfer successful!"
+    except Exception as e:
+        return False, f"Transfer failed: {str(e)}"
+
+def phone_configuration():
+    """Configuración del número de teléfono para transferencias"""
+    st.subheader("Phone Configuration")
+
+    if not st.session_state.phone_number:
+        st.warning("Please configure your phone number to perform transactions")
+
+        with st.form("phone_config"):
+            phone_number = st.text_input(
+                "Phone Number",
+                help="Your phone number in international format (e.g., +1234567890)"
+            )
+
+            if st.form_submit_button("Save Phone Configuration"):
+                # Validación básica del número de teléfono
+                if phone_number and phone_number.startswith('+'):
+                    st.session_state.phone_number = phone_number
+                    st.success("Phone number configured successfully!")
+                    st.rerun()
+                else:
+                    st.error("Please enter a valid phone number starting with '+'")
+    else:
+        st.success("Phone is configured")
+        st.info(f"Current phone number: {st.session_state.phone_number}")
+        if st.button("Reset Phone Configuration"):
+            st.session_state.phone_number = None
+            st.rerun()
+
+async def get_best_candidate(prompt):
+    """Función asíncrona para obtener el mejor candidato usando OpenAI"""
+    messages = [
+        {"role": "developer", "content": "You are a helpful assistant."},
+        {
+            "role": "user",
+            "content": prompt
+        }
+    ]
+    completion = await client.chat.completions.create(
+        model="gpt-4o",  # Asegúrate de que este modelo esté disponible
+        messages=messages
+    )
+    return completion.choices[0].message.content
+
+def candidate_management():
+    """Gestión de candidatos y transferencias"""
+    if not st.session_state.phone_number:
+        st.error("Please configure your phone number first")
+        phone_configuration()
+        return
+
+    st.subheader("Candidate Management")
+
+    # List candidates
+    st.subheader("Eligible Candidates")
+    candidates = db.get_all_candidates()
+    
+    if candidates:
+        # Convertir la lista de candidatos a un DataFrame
+        df = pd.DataFrame([{
+            'Name': c.name,
+            'ID': c.identification,
+            'Phone': c.phone,
+            'Last Subsidy': c.last_subsidy.strftime('%Y-%m-%d') if c.last_subsidy else 'Never',
+            'Is Eligible': c.is_eligible
+        } for c in candidates])
+
+        st.dataframe(df)
+
+        # Crear un prompt para el modelo de OpenAI
+        candidate_info = "\n".join([f"Name: {c.name}, ID: {c.identification}, Last Subsidy: {c.last_subsidy}, Is Eligible: {c.is_eligible}" for c in candidates])
+        
+        # Llamar al modelo de OpenAI para seleccionar el mejor candidato
+        completion = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "developer", "content": "You are a helpful assistant."},
+                {
+                    "role": "user",
+                    "content": f"De los siguientes candidatos, ¿quién es el mejor candidato para recibir un subsidio?\n{candidate_info}. proporcionar solo [nombre, identificacion, subsidio]"
+                }
+            ]
+        )
+
+        best_candidate_info = completion.choices[0].message.content
+        st.subheader("Mejor Candidato Seleccionado")
+        st.write(best_candidate_info)
+
+        # Extraer el nombre del mejor candidato del resultado de manera más segura
+        try:
+            parts = best_candidate_info.split(":")
+            if len(parts) > 1:
+                best_candidate_name = parts[1].strip()
+                # Buscar el candidato en la base de datos usando db_manager
+                selected_candidate = db_manager.get_candidate_by_name(best_candidate_name)  # Asegúrate de que esta función exista
+            else:
+                raise ValueError("El formato de la respuesta no es el esperado.")
+        except (IndexError, AttributeError, ValueError) as e:
+            # Lógica alternativa: seleccionar el candidato con subsidio None o el más antiguo
+            best_candidate_name = None
+            best_candidate = None  # Definir best_candidate antes de usarlo
+            for candidate in candidates:
+                if candidate.last_subsidy is None:
+                    best_candidate_name = candidate.name
+                    best_candidate = candidate
+                    break
+                elif best_candidate_name is None or (candidate.last_subsidy and candidate.last_subsidy < best_candidate.last_subsidy):
+                    best_candidate_name = candidate.name
+                    best_candidate = candidate
+
+        # Buscar el candidato en la base de datos
+        selected_candidate = next((c for c in candidates if c.name == best_candidate_name), None)
+
+        if selected_candidate:
+            # Mostrar toda la información del candidato seleccionado
+            st.subheader("Información del Candidato Seleccionado")
+            st.write(f"Nombre: {selected_candidate.name}")
+            st.write(f"ID: {selected_candidate.identification}")
+            st.write(f"Teléfono: {selected_candidate.phone}")
+            st.write(f"Elegible: {'Sí' if selected_candidate.is_eligible else 'No'}")
+            
+            # Verificar si existe el atributo notes
+            notes = getattr(selected_candidate, 'notes', 'No hay notas disponibles')
+            st.write(f"Notas: {notes}")
+
+            amount = st.number_input("Amount ($)", min_value=1.0, value=10.0, step=1.0)
+
+            if st.button("Transfer Subsidy"):
+                success, message = simple_phone_transfer(
+                    st.session_state.phone_number,
+                    selected_candidate.phone,
+                    amount
+                )
+
+                if success:
+                    db.update_candidate(selected_candidate.identification, {
+                        "last_subsidy": datetime.now()
+                    })
+
+                    call_message = f"Hello {selected_candidate.name}, you have received a subsidy of ${amount}."
+                    os.system(f"python conversational_call/main.py {selected_candidate.phone} {call_message}")
+
+                    st.success("Transfer successful and notification call initiated!")
+                else:
+                    st.error(f"Transfer error: {message}")
+        else:
+            st.error("No candidate found.")
+    else:
+        st.error("No candidates in the system")
 
 def login_page():
     st.title("Subsidy Management System")
@@ -261,37 +296,8 @@ def recover_page():
                 else:
                     st.error(message)
 
-def candidate_management():
-    # Get the selected candidate
-    try:
-        candidate = asyncio.run(st.session_state.agent.analyze_candidates())
-        
-        # Display candidate information
-        st.write(f"Selected candidate: {candidate.name}")
-        st.write(f"Phone: {candidate.phone}")
-        
-        # Transfer section
-        amount = st.number_input("Amount to transfer (USD)", min_value=10, value=10, step=5)
-        if st.button("Transfer and Start Call"):
-            success, message = transfer_via_phone(candidate.phone, amount)
-            if success:
-                st.success(message)
-                start_conversation(candidate)
-            else:
-                st.error(message)
-                
-    except Exception as e:
-        st.error(f"An error occurred: {str(e)}")
-
-def start_conversation(candidate: Candidate):
-    # Aquí se llamaría al main de la conversación, pasando el ID del candidato
-    os.system(f"python conversational_call/main.py {candidate.identification}")
-
-def transfer_via_phone(phone_number, amount):
-    # Logic to transfer money to the phone number using pix (Brazil), Bre-B (Colombia)
-    return True, "Transfer completed successfully"
-
 def main():
+    """Función principal de la aplicación"""
     init_session_state()
 
     if not st.session_state.authenticated:
@@ -302,20 +308,24 @@ def main():
         elif st.session_state.current_page == "recover":
             recover_page()
     else:
-        st.title("Subsidy Management System")
+        st.title("Sistema de Gestión de Subsidios")
 
         menu = st.sidebar.selectbox(
-            "Navigation",
-            ["Candidate Management"]
+            "Navegación",
+            ["Configuración de Teléfono", "Gestión de Candidatos", "Interfaz de Voz"]
         )
 
-        if menu == "Candidate Management":
+        if menu == "Configuración de Teléfono":
+            phone_configuration()
+        elif menu == "Gestión de Candidatos":
             candidate_management()
+        elif menu == "Interfaz de Voz":
+            voice_interface()  # Llama a la función de voice.py
 
-        if st.sidebar.button("Logout"):
+        if st.sidebar.button("Cerrar sesión"):
             st.session_state.authenticated = False
             st.session_state.current_user = None
-            st.session_state.wallet_configured = False
+            st.session_state.phone_number = None
             st.rerun()
 
 if __name__ == "__main__":
