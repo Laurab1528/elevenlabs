@@ -3,6 +3,9 @@ from pydantic import BaseModel, validator
 from typing import Optional
 
 class User(BaseModel):
+    """
+    Modelo de usuario para el sistema de autenticación
+    """
     username: str
     password: str
     email: str
@@ -10,6 +13,9 @@ class User(BaseModel):
     recovery_code_expiry: Optional[datetime] = None
 
 class Candidate(BaseModel):
+    """
+    Modelo de candidato para el sistema de subsidios
+    """
     name: str
     identification: str
     address: str
@@ -23,7 +29,7 @@ class Candidate(BaseModel):
     def is_eligible(self):
         if not self.last_subsidy:
             return True
-        return datetime.now() - self.last_subsidy > timedelta(days=60)
+        return datetime.now() - self.last_subsidy > timedelta(days=60) or None
 
     def update_resumen(self, new_resumen: str):
         """
@@ -44,6 +50,9 @@ class Candidate(BaseModel):
         self.comments = new_comments
 
 class Transaction(BaseModel):
+    """
+    Modelo para las transacciones de subsidios
+    """
     from_address: str
     to_address: str
     amount: float
