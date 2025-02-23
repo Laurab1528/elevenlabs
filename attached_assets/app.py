@@ -3,8 +3,6 @@ from datetime import datetime
 import pandas as pd
 from database import db_manager, init_db
 import os
-from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
 import openai
 from models import Candidate
 import asyncio
