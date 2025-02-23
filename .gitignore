@@ -39,3 +39,6 @@ conversational_call/.env
 .env.development.local
 .env.test.local
 .env.production.local
+
+# UV lock file
+uv.lock
