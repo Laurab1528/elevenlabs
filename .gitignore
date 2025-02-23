@@ -12,11 +12,13 @@ __pycache__/
 .coverage
 htmlcov/
 
+
 # IDE specific files
 .idea/
 .vscode/
 *.swp
 *.swo
+.replit
 .DS_Store
 
 # Distribution / packaging
