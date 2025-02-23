@@ -12,7 +12,9 @@ from dotenv import load_dotenv
 import logging
 from typing import Dict, List, Optional
 import random  # Asegúrate de importar la biblioteca random
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from dataclasses import dataclass
+from pydantic_ai import Agent, RunContext
 
 # Configuración de logging
 logging.basicConfig(
@@ -44,83 +46,67 @@ class Candidate(BaseModel):
     last_subsidy: Optional[datetime] = None
     resumen: Optional[str] = None
 
-# Definición de dependencias para el agente
+@dataclass
 class CandidateDependencies:
-    db: any  # Aquí puedes especificar el tipo de tu conexión a la base de datos
+    db: any  # Tipo de conexión a la base de datos
+    openai_key: str
 
-# Definición del agente de análisis de candidatos
+class CandidateAnalysisResult(BaseModel):
+    selected_candidate_id: str = Field(description='ID del candidato seleccionado')
+    urgency_level: int = Field(description='Nivel de urgencia del caso', ge=0, le=10)
+    recommendation: str = Field(description='Justificación de la selección')
+
+candidate_analysis_agent = Agent(
+    'openai:gpt-4o-mini',
+    deps_type=CandidateDependencies,
+    result_type=CandidateAnalysisResult,
+    system_prompt=(
+        'Eres un agente de análisis que evalúa candidatos para subsidios. '
+        'Debes seleccionar al candidato más necesitado basándote en su información.'
+    ),
+)
+
+@candidate_analysis_agent.system_prompt
+async def add_candidates_context(ctx: RunContext[CandidateDependencies]) -> str:
+    candidates = ctx.deps.db.get_all_candidates()
+    candidates_info = "\n".join([
+        f"Candidate: {c.name}\n"
+        f"ID: {c.identification}\n"
+        f"Last subsidy: {c.last_subsidy.strftime('%Y-%m-%d') if c.last_subsidy else 'Never'}\n"
+        f"Address: {c.address}\n"
+        f"Phone: {c.phone}\n"
+        f"Summary: {c.resumen if hasattr(c, 'resumen') else 'No summary'}\n"
+        "---"
+        for c in candidates
+    ])
+    return f"Analiza los siguientes candidatos:\n{candidates_info}"
+
+@candidate_analysis_agent.tool
+async def get_candidate_history(
+    ctx: RunContext[CandidateDependencies],
+    candidate_id: str
+) -> dict:
+    """Obtiene el historial de subsidios del candidato."""
+    return await ctx.deps.db.get_candidate_history(candidate_id)
+
 class CandidateAnalysisAgent:
-    """
-    Clase que representa un agente de análisis de candidatos.
-    """
-
     def __init__(self):
-        """
-        Inicializa el agente con la API key de OpenAI.
-        """
-        self.model = self.initialize_openai_client()
-
-    def initialize_openai_client(self) -> ChatOpenAI:
-        """
-        Inicializa el cliente de OpenAI.
-
-        Returns:
-            ChatOpenAI: Modelo de OpenAI inicializado.
-        """
-        return ChatOpenAI(
-            model="gpt-4o-mini",
-            temperature=0,
-            api_key=OPENAI_API_KEY
+        self.deps = CandidateDependencies(
+            db=db_manager,
+            openai_key=OPENAI_API_KEY
         )
-
+        
     async def analyze_candidates(self) -> Candidate:
-        """
-        Analiza todos los candidatos y devuelve el que más necesita el subsidio.
-
-        Returns:
-            Candidate: El candidato seleccionado.
-        """
-        candidates = db_manager.get_all_candidates()  # Obtener todos los candidatos
-        if not candidates:
-            raise ValueError("La base de datos debe contener al menos un candidato (ID001, ID002, ID003)")
-
-        # Ordenar candidatos por last_subsidy (ascendente)
-        candidates.sort(key=lambda c: c.last_subsidy if c.last_subsidy else datetime.min)
-
-        # Preparar información de los candidatos para el modelo
-        candidates_info = "\n".join([
-            f"Candidate: {c.name}\n"
-            f"ID: {c.identification}\n"
-            f"Last subsidy: {c.last_subsidy.strftime('%Y-%m-%d') if c.last_subsidy else 'Never'}\n"
-            f"Address: {c.address}\n"
-            f"Phone: {c.phone}\n"
-            f"Summary: {c.resumen if hasattr(c, 'resumen') else 'No summary'}\n"
-            "---"
-            for c in candidates
-        ])
-
-        # Crear un mensaje para el modelo
-        analysis_prompt = SystemMessage(content=f"""
-        Analyze the following list of candidates and select the one that needs the subsidy the most:
-        {candidates_info}
+        result = await candidate_analysis_agent.run(
+            "Analiza y selecciona al candidato más necesitado",
+            deps=self.deps
+        )
         
-        IMPORTANT: Your response must be ONLY the ID of the selected candidate, for example: 'ID001'
-        """)
-
-        # Enviar el mensaje al modelo y obtener la respuesta
-        response = await self.model.ainvoke([analysis_prompt])
-        
-        # Obtener el ID del candidato seleccionado
-        selected_candidate_id = response.content.strip()
-        
-        # Verificar que el ID exista antes de devolverlo
-        selected_candidate = db_manager.get_candidate(selected_candidate_id)
-
-        # Si el modelo no seleccionó un candidato válido, tomar el primero (más antiguo)
-        if selected_candidate is None:
-            logger.warning("El modelo no seleccionó un candidato válido. Seleccionando el candidato con el subsidio más antiguo.")
-            selected_candidate = candidates[0]  # Tomar el primer candidato en la lista ordenada
-
+        selected_candidate = db_manager.get_candidate(result.data.selected_candidate_id)
+        if not selected_candidate:
+            candidates = db_manager.get_all_candidates()
+            selected_candidate = candidates[0] if candidates else None
+            
         return selected_candidate
 
     def extract_candidate_id(self, analysis_result: str) -> str:
