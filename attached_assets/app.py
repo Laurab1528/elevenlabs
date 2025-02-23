@@ -6,10 +6,6 @@ from database import db_manager, init_db
 import os
 from dotenv import load_dotenv  # Asegúrate de instalar python-dotenv si no lo tienes
 from openai import OpenAI
-import asyncio
-import speech_recognition as sr
-from gtts import gTTS
-import tempfile
 from voice import voice_interface # Asegúrate de importar la función
 import streamlit as st
 
