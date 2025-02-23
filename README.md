@@ -11,8 +11,8 @@ This subsidy is designed for individuals who did not meet the retirement require
 - User authentication.
 - New user registration.
 - Candidate management (viewing, selecting, and transferring subsidies).
-- Candidate analysis using the OpenAI API.
-- Recording of call transcriptions.
+- Candidate analysis using the OpenAI API criteria.
+- Calling subsidized candidates to announce they are the winners.
 
 ## Technologies Used
 
