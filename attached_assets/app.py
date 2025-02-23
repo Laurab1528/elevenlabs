@@ -97,8 +97,6 @@ class CandidateAnalysisAgent:
         
         # Get the candidate ID and clean it from any additional text
         selected_candidate_id = response.content.strip()
-
-        print(selected_candidate_id)
         
         # Verify that the ID exists before returning it
         selected_candidate = db_manager.get_candidate(selected_candidate_id)
