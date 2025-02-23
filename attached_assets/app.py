@@ -35,6 +35,20 @@ if not OPENAI_API_KEY:
 # Configurar OpenAI API
 openai.api_key = OPENAI_API_KEY
 
+# Definición del modelo de candidato usando Pydantic
+class Candidate(BaseModel):
+    name: str
+    identification: str
+    address: str
+    phone: str
+    last_subsidy: Optional[datetime] = None
+    resumen: Optional[str] = None
+
+# Definición de dependencias para el agente
+class CandidateDependencies:
+    db: any  # Aquí puedes especificar el tipo de tu conexión a la base de datos
+
+# Definición del agente de análisis de candidatos
 class CandidateAnalysisAgent:
     """
     Clase que representa un agente de análisis de candidatos.
@@ -61,19 +75,19 @@ class CandidateAnalysisAgent:
 
     async def analyze_candidates(self) -> Candidate:
         """
-        Analyzes all candidates and returns the one that needs the subsidy the most.
+        Analiza todos los candidatos y devuelve el que más necesita el subsidio.
 
         Returns:
-            Candidate: The selected candidate.
+            Candidate: El candidato seleccionado.
         """
-        candidates = db_manager.get_all_candidates()  # Get all candidates
+        candidates = db_manager.get_all_candidates()  # Obtener todos los candidatos
         if not candidates:
-            raise ValueError("The database must contain at least one candidate (ID001, ID002, ID003)")
+            raise ValueError("La base de datos debe contener al menos un candidato (ID001, ID002, ID003)")
 
-        # Sort candidates by last_subsidy (ascending), prioritizing the oldest subsidy
+        # Ordenar candidatos por last_subsidy (ascendente)
         candidates.sort(key=lambda c: c.last_subsidy if c.last_subsidy else datetime.min)
 
-        # Prepare candidate information for the model
+        # Preparar información de los candidatos para el modelo
         candidates_info = "\n".join([
             f"Candidate: {c.name}\n"
             f"ID: {c.identification}\n"
@@ -85,7 +99,7 @@ class CandidateAnalysisAgent:
             for c in candidates
         ])
 
-        # Create a message for the model
+        # Crear un mensaje para el modelo
         analysis_prompt = SystemMessage(content=f"""
         Analyze the following list of candidates and select the one that needs the subsidy the most:
         {candidates_info}
@@ -93,19 +107,19 @@ class CandidateAnalysisAgent:
         IMPORTANT: Your response must be ONLY the ID of the selected candidate, for example: 'ID001'
         """)
 
-        # Send the message to the model and get the response
+        # Enviar el mensaje al modelo y obtener la respuesta
         response = await self.model.ainvoke([analysis_prompt])
         
-        # Get the candidate ID and clean it from any additional text
+        # Obtener el ID del candidato seleccionado
         selected_candidate_id = response.content.strip()
         
-        # Verify that the ID exists before returning it
+        # Verificar que el ID exista antes de devolverlo
         selected_candidate = db_manager.get_candidate(selected_candidate_id)
 
-        # If the model did not select a valid candidate, take the first one (oldest last_subsidy)
+        # Si el modelo no seleccionó un candidato válido, tomar el primero (más antiguo)
         if selected_candidate is None:
-            logger.warning("The model did not select a valid candidate. Selecting the candidate with the oldest last_subsidy instead.")
-            selected_candidate = candidates[0]  # Take the first candidate in the sorted list
+            logger.warning("El modelo no seleccionó un candidato válido. Seleccionando el candidato con el subsidio más antiguo.")
+            selected_candidate = candidates[0]  # Tomar el primer candidato en la lista ordenada
 
         return selected_candidate
 
@@ -119,8 +133,6 @@ class CandidateAnalysisAgent:
         Returns:
             str: ID del candidato.
         """
-        # Como el modelo está configurado para devolver solo el ID,
-        # simplemente limpiamos cualquier espacio en blanco
         return analysis_result.strip()
 
     def get_candidates(self) -> List[Candidate]:
