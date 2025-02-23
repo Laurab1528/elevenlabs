@@ -10,8 +10,10 @@ from models import Candidate
 import asyncio
 from dotenv import load_dotenv
 import logging
-from typing import Dict, List
+from typing import Dict, List, Optional
 import random  # Asegúrate de importar la biblioteca random
+from langchain.graphs import LangGraph, Node, Edge
+from pydantic import BaseModel
 
 # Configuración de logging
 logging.basicConfig(
@@ -263,43 +265,15 @@ def recover_page():
                     st.error(message)
 
 def candidate_management():
-    st.subheader("Candidate Management")
-
-    # Obtener todos los candidatos
-    candidates = db_manager.get_all_candidates()
+    orchestrator = AgentOrchestrator()
     
-    if not candidates:
-        st.error("No candidates available.")
-        return
-
-    # Análisis de candidatos para seleccionar el mejor
-    agent = CandidateAnalysisAgent()
-    selected_candidate = asyncio.run(agent.analyze_candidates())
-
-    # Mostrar la información del candidato seleccionado
-    st.info(f"Selected candidate: {selected_candidate.name} (ID: {selected_candidate.identification})")
+    # Your existing code remains the same, but now it's being tracked by the orchestrator
+    success = orchestrator.execute_flow()
     
-    # Mostrar información adicional del candidato
-    st.write(f"Address: {selected_candidate.address}")
-    st.write(f"Phone: {selected_candidate.phone}")
-    st.write(f"Last subsidy: {selected_candidate.last_subsidy.strftime('%Y-%m-%d') if selected_candidate.last_subsidy else 'Never'}")
-
-    # Proceso de transferencia
-    amount = st.number_input("Amount to transfer (USD)", min_value=10, value=10, step=5)
-
-    if st.button("Confirm Transfer"):
-        success, message = transfer_via_phone(selected_candidate.phone, amount)
-
-        if success:
-            # Actualizar solo last_subsidy
-            db_manager.update_candidate(selected_candidate.identification, {
-                "last_subsidy": datetime.now()
-            })
-
-            st.success("Transfer successful!")
-            os.system(f"python conversational_call/main.py {selected_candidate.identification}")
-        else:
-            st.error(f"Error in transfer: {message}")
+    if success:
+        # Save the state if needed
+        state = orchestrator.save_state()
+        # You can store this state somewhere if needed
 
 def start_conversation(candidate: Candidate):
     # Aquí se llamaría al main de la conversación, pasando el ID del candidato
@@ -335,6 +309,87 @@ def main():
             st.session_state.current_user = None
             st.session_state.wallet_configured = False
             st.rerun()
+
+# Add the agent structure on top of your existing code
+class AgentOrchestrator:
+    """
+    Orchestrates the flow between different components of the system
+    """
+    def __init__(self):
+        self.graph = LangGraph()
+        self.state = {}
+        
+    def create_node(self, node_type: str, data: Dict) -> Node:
+        """Creates a node in the graph"""
+        node = Node(id=f"{node_type}_{datetime.now().timestamp()}", data=data)
+        self.graph.add_node(node)
+        return node
+        
+    def create_edge(self, from_node: Node, to_node: Node, action: str) -> Edge:
+        """Creates an edge between nodes"""
+        edge = Edge(from_node=from_node, to_node=to_node, action=action)
+        self.graph.add_edge(edge)
+        return edge
+        
+    def execute_flow(self):
+        """
+        Executes the main flow of the application while tracking state
+        """
+        try:
+            # 1. Candidate Selection Flow
+            selection_node = self.create_node(
+                "candidate_selection",
+                {"status": "started"}
+            )
+            
+            # Use your existing candidate selection logic
+            agent = CandidateAnalysisAgent()
+            candidate = asyncio.run(agent.analyze_candidates())  # Your existing method
+            
+            self.create_node(
+                "candidate_selected",
+                {"candidate_id": candidate.identification}
+            )
+
+            # 2. Transfer Flow
+            transfer_node = self.create_node(
+                "transfer",
+                {"status": "started"}
+            )
+            
+            # Use your existing transfer logic
+            amount = st.number_input("Amount to transfer (USD)", min_value=10, value=10, step=5)
+            success, message = transfer_via_phone(candidate.phone, amount)
+            
+            if success:
+                self.create_edge(selection_node, transfer_node, "transfer_successful")
+                
+                # 3. Call Flow
+                call_node = self.create_node(
+                    "call",
+                    {"status": "started"}
+                )
+                
+                # Use your existing call logic
+                start_conversation(candidate)
+                
+                self.create_edge(transfer_node, call_node, "call_initiated")
+            else:
+                self.create_edge(selection_node, transfer_node, "transfer_failed")
+            
+            return True
+            
+        except Exception as e:
+            self.create_node("error", {"error": str(e)})
+            return False
+            
+    def save_state(self) -> Dict:
+        """Save the current state of the graph"""
+        return self.graph.to_dict()
+        
+    def load_state(self, state: Dict) -> None:
+        """Load a previous state of the graph"""
+        self.graph.from_dict(state)
 
 if __name__ == "__main__":
     main()
