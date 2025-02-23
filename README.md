@@ -37,8 +37,8 @@ This subsidy is designed for individuals who did not meet the retirement require
 1. Clone the repository:
 
    ```bash
-   git clone <REPOSITORY_URL>
-   cd <REPOSITORY_NAME>
+   git clone https://github.com/Laurab1528/elevenlabs
+   cd elevenlabs
    ```
 
 2. Create a virtual environment and activate it:
@@ -53,7 +53,7 @@ This subsidy is designed for individuals who did not meet the retirement require
 
 3. Install the dependencies using Poetry:
 
-   If you are using [Poetry](https://docs.astral.sh/uv/), you can install the dependencies with:
+   If you are using [uv](https://docs.astral.sh/uv/), you can install the dependencies with:
 
    ```bash
    uv install
