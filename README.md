@@ -37,8 +37,8 @@ This subsidy is designed for individuals who did not meet the retirement require
 1. Clone the repository:
 
    ```bash
-   git clone [https://github.com/Laurab1528/elevenlabs]
-   cd elevenlabs
+   git clone <REPOSITORY_URL>
+   cd <REPOSITORY_NAME>
    ```
 
 2. Create a virtual environment and activate it:
@@ -53,7 +53,7 @@ This subsidy is designed for individuals who did not meet the retirement require
 
 3. Install the dependencies using Poetry:
 
-   If you are using [UV](https://docs.astral.sh/uv/), you can install the dependencies with:
+   If you are using [Poetry](https://docs.astral.sh/uv/), you can install the dependencies with:
 
    ```bash
    uv install
@@ -97,5 +97,47 @@ Contributions are welcome. If you would like to contribute, please follow these 
 3. Make your changes and commit (`git commit -m 'Add new feature'`).
 4. Push to the branch (`git push origin feature/new-feature`).
 5. Open a Pull Request.
+
+## Environment Variables
+
+Before running the application, you need to configure the following environment variables in your `.env` file:
+
+
+
+- **ELEVENLABS_API_KEY**: Your Eleven Labs API key.
+  ```
+ 
+  ```
+
+- **ELEVENLABS_AGENT_ID**: Your Eleven Labs agent ID.
+  ```
+  
+  ```
+
+- **TWILIO_ACCOUNT_SID**: Your Twilio account SID.
+  ```
+ 
+  ```
+
+- **TWILIO_AUTH_TOKEN**: Your Twilio authentication token.
+  ```
+ 
+  ```
+
+- **TWILIO_FROM_NUMBER**: The phone number from which Twilio will send messages.
+  ```
+
+  ```
+
+- **TWILIO_NUMBER_TO_CALL**: The phone number to which calls will be made.
+  ```
+
+
+- **OPENAI_API_KEY**: Your OpenAI API key.
+  ```
+
+  ```
+
+Make sure to replace the placeholder values with your actual credentials.
 
 
