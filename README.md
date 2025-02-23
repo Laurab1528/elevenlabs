@@ -105,38 +105,23 @@ Before running the application, you need to configure the following environment 
 
 
 - **ELEVENLABS_API_KEY**: Your Eleven Labs API key.
-  ```
- 
-  ```
 
 - **ELEVENLABS_AGENT_ID**: Your Eleven Labs agent ID.
-  ```
   
-  ```
 
 - **TWILIO_ACCOUNT_SID**: Your Twilio account SID.
-  ```
- 
-  ```
+
 
 - **TWILIO_AUTH_TOKEN**: Your Twilio authentication token.
-  ```
- 
-  ```
+
 
 - **TWILIO_FROM_NUMBER**: The phone number from which Twilio will send messages.
-  ```
-
-  ```
 
 - **TWILIO_NUMBER_TO_CALL**: The phone number to which calls will be made.
-  ```
-
+ 
 
 - **OPENAI_API_KEY**: Your OpenAI API key.
-  ```
-
-  ```
+ 
 
 Make sure to replace the placeholder values with your actual credentials.
 
