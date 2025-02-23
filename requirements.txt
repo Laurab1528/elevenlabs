@@ -1,0 +1,12 @@
+alembic>=1.14.1
+openai>=1.63.2
+psycopg2-binary>=2.9.10
+pydantic[email]>=2.10.6
+sqlalchemy>=2.0.38
+streamlit>=1.42.2
+twilio>=9.4.6
+langchain>=0.2.1
+langchain-community>=0.2.1
+langchain-core>=0.2.1
+langchain-openai>=0.2.1
+langchain-community-tools>=0.2.1

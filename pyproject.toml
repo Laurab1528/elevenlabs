@@ -11,5 +11,9 @@ dependencies = [
     "sqlalchemy>=2.0.38",
     "streamlit>=1.42.2",
     "twilio>=9.4.6",
-    "web3>=7.8.0",
+    "langchain>=0.2.1",
+    "langchain-community>=0.2.1",
+    "langchain-core>=0.2.1",
+    "langchain-openai>=0.2.1",
+    "langchain-community-tools>=0.2.1",
 ]
