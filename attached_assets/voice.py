@@ -20,8 +20,13 @@ def voice_interface():
         agent_id,
         requires_auth=bool(api_key),
         audio_interface=DefaultAudioInterface(),
+<<<<<<< HEAD
         callback_agent_response=lambda response: st.write(f"Agente: {response}"),
         callback_user_transcript=lambda transcript: st.write(f"Usuario: {transcript}")
+=======
+        callback_agent_response=lambda response: print(f"Agente: {response}"),
+        callback_user_transcript=lambda transcript: print(f"Usuario: {transcript}")
+>>>>>>> 3860e70654b18814303192fce43725e459f9d47a
     )
 
     st.title("Interfaz de Voz")
@@ -30,8 +35,14 @@ def voice_interface():
         recognizer = sr.Recognizer()
         with sr.Microphone() as source:
             st.write("Por favor, hable ahora...")
+<<<<<<< HEAD
             try:
                 audio = recognizer.listen(source, timeout=5)
+=======
+            audio = recognizer.listen(source)
+
+            try:
+>>>>>>> 3860e70654b18814303192fce43725e459f9d47a
                 text = recognizer.recognize_google(audio, language='es-ES')
                 st.write(f"Usted dijo: {text}")
 
@@ -54,8 +65,11 @@ def voice_interface():
                 st.error("No se pudo entender el audio.")
             except sr.RequestError as e:
                 st.error(f"No se pudo solicitar resultados; {e}")
+<<<<<<< HEAD
             except Exception as e:
                 st.error(f"Ocurrió un error: {str(e)}")
+=======
+>>>>>>> 3860e70654b18814303192fce43725e459f9d47a
 
 
 
